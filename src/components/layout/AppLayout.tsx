@@ -7,9 +7,9 @@ const { Content } = Layout
 
 function AppLayout() {
   return (
-    <Layout className="app-layout">
+    <Layout className="app-layout" hasSider>
       <Sidebar />
-      <Layout>
+      <Layout style={{ background: 'var(--bg)' }}>
         <AppHeader />
         <Content className="app-content">
           <Outlet />

@@ -1,24 +1,46 @@
 import {
+  AppstoreOutlined,
   CarOutlined,
-  DashboardOutlined,
-  RobotOutlined,
+  SettingOutlined,
+  WarningOutlined,
 } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 
 export const navigationItems: MenuProps['items'] = [
   {
     key: '/dashboard',
-    label: 'Dashboard',
-    icon: <DashboardOutlined />,
+    label: 'Overview',
+    icon: <AppstoreOutlined />,
+  },
+  {
+    key: '/risk',
+    label: 'Risk Analytics',
+    icon: <WarningOutlined />,
   },
   {
     key: '/vehicles',
-    label: 'Vehicles',
+    label: 'Vehicle Table',
     icon: <CarOutlined />,
   },
+]
+
+export const settingsItem: MenuProps['items'] = [
   {
-    key: '/assistant',
-    label: 'AI Assistant',
-    icon: <RobotOutlined />,
+    key: 'settings',
+    label: 'Settings',
+    icon: <SettingOutlined />,
+    disabled: true,
   },
 ]
+
+export const pageMeta: Record<string, { title: string; crumb: string }> = {
+  '/dashboard': { title: 'Overview', crumb: 'Fleet-wide summary' },
+  '/risk': {
+    title: 'Risk Analytics',
+    crumb: 'Distribution, trends and contributing signals',
+  },
+  '/vehicles': {
+    title: 'Vehicle Table',
+    crumb: 'Full fleet risk list, searchable and filterable',
+  },
+}

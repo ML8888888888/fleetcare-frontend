@@ -1,6 +1,6 @@
-import { Layout, Menu, Typography } from 'antd'
+import { Layout, Menu } from 'antd'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { navigationItems } from '../../config/navigation'
+import { navigationItems, settingsItem } from '../../config/navigation'
 
 const { Sider } = Layout
 
@@ -9,9 +9,13 @@ function Sidebar() {
   const location = useLocation()
 
   return (
-    <Sider collapsible width={240} theme="dark">
+    <Sider className="app-sider" width={220} theme="dark" collapsible={false}>
       <div className="sidebar-brand">
-        <Typography.Title level={4}>FleetCare AI</Typography.Title>
+        <div className="sidebar-logo">S</div>
+        <div>
+          <div className="name">SCANIA</div>
+          <div className="sub">Predictive Maintenance</div>
+        </div>
       </div>
       <Menu
         theme="dark"
@@ -20,6 +24,9 @@ function Sidebar() {
         selectedKeys={[location.pathname]}
         onClick={({ key }) => navigate(key)}
       />
+      <div className="sidebar-footer">
+        <Menu theme="dark" mode="inline" items={settingsItem} selectable={false} />
+      </div>
     </Sider>
   )
 }
