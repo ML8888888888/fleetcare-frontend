@@ -1,14 +1,7 @@
-import { Typography } from 'antd'
+import DashboardContent from '../../components/dashboard/DashboardContent'
 
 function Dashboard() {
-  return (
-    <>
-      <Typography.Title level={2}>Dashboard</Typography.Title>
-      <Typography.Paragraph>
-        Fleet health overview will be displayed here.
-      </Typography.Paragraph>
-    </>
-  )
+  return <DashboardContent />
 }
 
 export default Dashboard
