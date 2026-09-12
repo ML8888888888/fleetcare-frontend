@@ -9,6 +9,7 @@ function AppHeader() {
   const pageTitles: Record<string, string> = {
     '/dashboard': 'Dashboard',
     '/vehicles': 'Vehicles',
+    '/risk-analytics': 'Risk Analytics',
     '/assistant': 'AI Assistant',
   }
 

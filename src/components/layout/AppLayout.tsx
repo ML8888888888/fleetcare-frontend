@@ -1,5 +1,6 @@
 import { Layout } from 'antd'
 import { Outlet } from 'react-router-dom'
+import FloatingAssistant from '../assistant/FloatingAssistant'
 import AppHeader from './AppHeader'
 import Sidebar from './Sidebar'
 
@@ -15,6 +16,7 @@ function AppLayout() {
           <Outlet />
         </Content>
       </Layout>
+      <FloatingAssistant />
     </Layout>
   )
 }
