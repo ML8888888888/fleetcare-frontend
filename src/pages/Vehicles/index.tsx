@@ -1,14 +1,7 @@
-import { Typography } from 'antd'
+import VehicleTableContent from '../../components/vehicles/VehicleTableContent'
 
 function Vehicles() {
-  return (
-    <>
-      <Typography.Title level={2}>Vehicles</Typography.Title>
-      <Typography.Paragraph>
-        Vehicle information will be displayed here.
-      </Typography.Paragraph>
-    </>
-  )
+  return <VehicleTableContent />
 }
 
 export default Vehicles

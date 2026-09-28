@@ -3,6 +3,7 @@ import AppLayout from '../components/layout/AppLayout'
 import Assistant from '../pages/Assistant'
 import Dashboard from '../pages/Dashboard'
 import NotFound from '../pages/NotFound'
+import RiskAnalytics from '../pages/RiskAnalytics'
 import Vehicles from '../pages/Vehicles'
 
 export const router = createBrowserRouter([
@@ -13,6 +14,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <Dashboard /> },
       { path: 'vehicles', element: <Vehicles /> },
+      { path: 'risk-analytics', element: <RiskAnalytics /> },
       { path: 'assistant', element: <Assistant /> },
       { path: '*', element: <NotFound /> },
     ],

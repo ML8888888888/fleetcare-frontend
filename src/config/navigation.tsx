@@ -1,7 +1,7 @@
 import {
   CarOutlined,
   DashboardOutlined,
-  RobotOutlined,
+  LineChartOutlined,
 } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 
@@ -17,8 +17,8 @@ export const navigationItems: MenuProps['items'] = [
     icon: <CarOutlined />,
   },
   {
-    key: '/assistant',
-    label: 'AI Assistant',
-    icon: <RobotOutlined />,
+    key: '/risk-analytics',
+    label: 'Risk Analytics',
+    icon: <LineChartOutlined />,
   },
 ]
