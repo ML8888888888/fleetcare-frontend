@@ -1,11 +1,8 @@
 import { ArrowRightOutlined } from '@ant-design/icons'
-import { Card, Col, Divider, List, Row, Space, Tag, Typography } from 'antd'
-import {
-  dashboardKpis,
-  maintenancePlan,
-  riskAlerts,
-  riskClasses,
-} from '../../utils/dashboard/dataQueries'
+import { Alert, Card, Col, Divider, List, Row, Skeleton, Space, Tag, Typography } from 'antd'
+import { useEffect, useState } from 'react'
+import { fetchDashboard } from '../../utils/dashboard/dataQueries'
+import type { DashboardResponse } from '../../utils/dashboard/dataQueries'
 
 const { Text, Title } = Typography
 
@@ -21,7 +18,67 @@ const colors = {
 const cardTitleStyle = { fontSize: 12, letterSpacing: 0.5, color: colors.muted }
 const sectionCardStyle = { height: '100%' }
 
+const riskActionColors: Record<string, string> = {
+  CONTINUE: '#e6f4ff',
+  MONITOR: '#1677ff',
+  ENHANCED_MONITOR: '#d4b106',
+  INSPECT: '#d46b08',
+  PRIORITY_INSPECT: '#cf1322',
+}
+
+type RiskSnapshotChartItem = {
+  label: string
+  count: number
+  percentage: number
+  color: string
+}
+
 function DashboardContent() {
+  const [dashboard, setDashboard] = useState<DashboardResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    fetchDashboard(controller.signal)
+      .then(setDashboard)
+      .catch((requestError: unknown) => {
+        if (requestError instanceof DOMException && requestError.name === 'AbortError') return
+        setError(requestError instanceof Error ? requestError.message : 'Unable to load dashboard data')
+      })
+
+    return () => controller.abort()
+  }, [])
+
+  if (error) return <Alert type="error" showIcon message="Dashboard unavailable" description={error} />
+  if (!dashboard) return <Skeleton active />
+
+  const dashboardKpis = [
+    { title: 'FLEET OVERVIEW', value: dashboard.fleet.total.toLocaleString(), details: [{ label: `${dashboard.fleet.analyzed.toLocaleString()} Analyzed`, type: 'success' as const }] },
+    { title: 'AT RISK', value: dashboard.risk.at_risk.toLocaleString(), details: [{ label: `${dashboard.risk.high} High`, type: 'warning' as const }, { label: `${dashboard.risk.critical} Critical`, type: 'danger' as const }] },
+    { title: 'MAINTENANCE PLAN', value: dashboard.maintenance_plan.immediate.toLocaleString(), details: [{ label: `${dashboard.maintenance_plan.short_term} Short term`, type: 'warning' as const }, { label: `${dashboard.maintenance_plan.monitor} Monitor`, type: 'secondary' as const }] },
+    { title: 'AVG. RISK SCORE', value: `${dashboard.risk.average_score.toFixed(2)} /100`, details: [{ label: 'Fleet average', type: 'secondary' as const }] },
+  ]
+  const riskSnapshotData = dashboard.risk_snapshot.map((item) => ({
+    label: item.action.replaceAll('_', ' '),
+    count: item.count,
+    percentage: item.percentage,
+    color: riskActionColors[item.action] ?? colors.muted,
+  }))
+  const riskClasses = riskSnapshotData.map((item) => ({
+    ...item,
+    count: item.count.toLocaleString(),
+    percentage: `${item.percentage}%`,
+  }))
+  const riskAlerts = dashboard.top_risk_alerts.map((alert) => ({
+    vehicle: `Vehicle ${alert.vehicle_id}`, description: alert.action.replaceAll('_', ' '), className: alert.state, tagColor: alert.priority === 'CRITICAL' ? 'red' : 'orange', risk: `${alert.risk_score.toFixed(2)}%`,
+  }))
+  const maintenancePlan = [
+    { title: 'Immediate', value: dashboard.maintenance_plan.immediate.toLocaleString(), color: colors.red },
+    { title: 'Short term', value: dashboard.maintenance_plan.short_term.toLocaleString(), color: colors.orange },
+    { title: 'Monitor', value: dashboard.maintenance_plan.monitor.toLocaleString(), color: colors.blue },
+  ]
+
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Row gutter={[16, 16]}>
@@ -53,7 +110,7 @@ function DashboardContent() {
           >
             <Row align="middle" gutter={[32, 24]}>
               <Col xs={24} sm={10}>
-                <div style={chartPlaceholderStyle} aria-label="Risk distribution chart" />
+                <RiskSnapshotChart data={riskSnapshotData} />
               </Col>
               <Col xs={24} sm={14}>
                 <List
@@ -85,10 +142,10 @@ function DashboardContent() {
             <List
               dataSource={riskAlerts}
               renderItem={(alert) => (
-                <List.Item>
+                <List.Item style={{ padding: '1px 0' }}>
                   <List.Item.Meta
                     title={alert.vehicle}
-                    description={alert.description}
+                    description={<span style={{ fontSize: 12 }}>{alert.description}</span>}
                   />
                   <Space direction="vertical" align="end" size={2}>
                     <Tag color={alert.tagColor}>{alert.className}</Tag>
@@ -107,30 +164,11 @@ function DashboardContent() {
             <Col key={item.title} xs={24} sm={12} lg={6}>
               <div style={summaryBlockStyle}>
                 {index > 0 && <Divider type="vertical" style={dividerStyle} />}
-                {item.kind === 'financial' ? (
-                  <Row gutter={16}>
-                    <Col span={12}>
-                      <Text type="secondary">Preventive</Text>
-                      <Title level={4} style={{ ...financialValueStyle, color: colors.green }}>
-                        -$452,000
-                      </Title>
-                    </Col>
-                    <Col span={12}>
-                      <Text type="secondary">If ignored</Text>
-                      <Title level={4} style={{ ...financialValueStyle, color: colors.red }}>
-                        $1,230,000
-                      </Title>
-                    </Col>
-                  </Row>
-                ) : (
-                  <>
-                    <Text type="secondary">{item.title}</Text>
-                    <Title level={2} style={{ margin: '8px 0 0' }}>
-                      {item.value}
-                    </Title>
-                    <Text style={{ color: item.color ?? colors.muted }}>vehicles</Text>
-                  </>
-                )}
+                <Text type="secondary">{item.title}</Text>
+                <Title level={2} style={{ margin: '8px 0 0' }}>
+                  {item.value}
+                </Title>
+                <Text style={{ color: item.color ?? colors.muted }}>vehicles</Text>
               </div>
             </Col>
           ))}
@@ -140,20 +178,71 @@ function DashboardContent() {
   )
 }
 
-const chartPlaceholderStyle = {
-  width: 168,
-  height: 168,
-  maxWidth: '100%',
-  margin: '0 auto',
-  borderRadius: '50%',
-  background:
-    'conic-gradient(#e6f4ff 0 58.2%, #1677ff 58.2% 70.8%, #d4b106 70.8% 79.6%, #d46b08 79.6% 90.7%, #cf1322 90.7% 100%)',
-  position: 'relative' as const,
+function RiskSnapshotChart({ data }: { data: RiskSnapshotChartItem[] }) {
+  const [hoveredItem, setHoveredItem] = useState<RiskSnapshotChartItem | null>(null)
+  let startAngle = -90
+
+  const segments = data.map((item) => {
+    const endAngle = startAngle + item.percentage * 3.6
+    const startRadians = (startAngle * Math.PI) / 180
+    const endRadians = (endAngle * Math.PI) / 180
+    const startX = 100 + 90 * Math.cos(startRadians)
+    const startY = 100 + 90 * Math.sin(startRadians)
+    const endX = 100 + 90 * Math.cos(endRadians)
+    const endY = 100 + 90 * Math.sin(endRadians)
+    const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0
+    const path = `M 100 100 L ${startX} ${startY} A 90 90 0 ${largeArcFlag} 1 ${endX} ${endY} Z`
+
+    startAngle = endAngle
+    return { item, path }
+  })
+
+  return (
+    <div style={chartContainerStyle}>
+      <svg viewBox="0 0 200 200" role="img" aria-label="Risk distribution chart" style={chartSvgStyle}>
+        {segments.map(({ item, path }) => (
+          <path
+            key={item.label}
+            d={path}
+            fill={item.color}
+            stroke="#fff"
+            strokeWidth="1"
+            onMouseEnter={() => setHoveredItem(item)}
+            onMouseLeave={() => setHoveredItem(null)}
+          />
+        ))}
+      </svg>
+      {hoveredItem && (
+        <div style={chartTooltipStyle}>
+          <strong>{hoveredItem.label}</strong>
+          <br />
+          {hoveredItem.count.toLocaleString()} vehicles ({hoveredItem.percentage}%)
+        </div>
+      )}
+    </div>
+  )
+}
+
+const chartContainerStyle = { position: 'relative' as const, width: 168, maxWidth: '100%', margin: '0 auto' }
+const chartSvgStyle = { display: 'block', width: '100%', height: 'auto' }
+const chartTooltipStyle = {
+  position: 'absolute' as const,
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  padding: '6px 8px',
+  borderRadius: 4,
+  background: 'rgba(0, 0, 0, 0.75)',
+  color: '#fff',
+  fontSize: 12,
+  lineHeight: 1.4,
+  textAlign: 'center' as const,
+  whiteSpace: 'nowrap' as const,
+  pointerEvents: 'none' as const,
 }
 
 const legendDotStyle = { width: 8, height: 8, borderRadius: '50%' }
 const summaryBlockStyle = { position: 'relative' as const, minHeight: 88, padding: '4px 20px' }
 const dividerStyle = { position: 'absolute' as const, left: 0, top: 0, height: '100%' }
-const financialValueStyle = { margin: '8px 0 0', fontSize: 18 }
 
 export default DashboardContent
