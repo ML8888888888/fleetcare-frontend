@@ -1,4 +1,10 @@
-export type VehicleStatus = 'Priority Inspect' | 'Inspect' | 'Enhanced Monitor'
+export type VehicleStatus =
+  | 'Priority Inspect'
+  | 'Inspect'
+  | 'Enhanced Monitor'
+  | 'Monitor'
+  | 'Continue'
+  | 'Manual Review'
 
 export type VehicleRecord = {
   vehicleId: string
@@ -6,30 +12,9 @@ export type VehicleRecord = {
   riskScore: number
 }
 
-export const vehicleData: VehicleRecord[] = [
-  {
-    vehicleId: 'VHC-89321',
-    predictedClass: 'Priority Inspect',
-    riskScore: 92,
-  },
-  {
-    vehicleId: 'VHC-55217',
-    predictedClass: 'Priority Inspect',
-    riskScore: 88,
-  },
-  {
-    vehicleId: 'VHC-66107',
-    predictedClass: 'Inspect',
-    riskScore: 71,
-  },
-  {
-    vehicleId: 'VHC-77834',
-    predictedClass: 'Inspect',
-    riskScore: 67,
-  },
-  {
-    vehicleId: 'VHC-33120',
-    predictedClass: 'Enhanced Monitor',
-    riskScore: 60,
-  },
-]
+export type VehicleListResponse = {
+  total: number
+  page: number
+  pageSize: number
+  items: VehicleRecord[]
+}

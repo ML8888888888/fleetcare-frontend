@@ -3,11 +3,12 @@ import {
   ArrowUpOutlined,
   CheckOutlined,
 } from '@ant-design/icons'
-import { Alert, Button, Card, Col, Flex, List, Row, Space, Tag, Typography } from 'antd'
-import { useState } from 'react'
+import { Alert, Button, Card, Col, Flex, List, Row, Space, Spin, Tag, Typography } from 'antd'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getVehicleDetail } from '../../utils/Vehicles/vehicleDetails'
-import type { VehicleTrendPoint } from '../../utils/Vehicles/vehicleDetails'
+import { ApiError, getJson } from '../../utils/http'
+import { vehicleEndpoints } from '../../utils/Vehicles/endpoints'
+import type { VehicleDetail, VehicleTrendPoint } from '../../utils/Vehicles/vehicleDetails'
 
 const { Text, Title } = Typography
 
@@ -40,6 +41,7 @@ function RiskOverTimeChart({ points }: { points: VehicleTrendPoint[] }) {
   const bottom = 32
   const innerWidth = width - left - right
   const innerHeight = height - top - bottom
+  const activeSeries = riskSeries.filter((series) => points.some((point) => typeof point[series.key] === 'number'))
   const xAt = (index: number) => left + (points.length === 1 ? innerWidth / 2 : (index / (points.length - 1)) * innerWidth)
   const yAt = (value: number) => top + (1 - value) * innerHeight
   const hovered = hoveredIndex === null ? null : points[hoveredIndex]
@@ -49,11 +51,15 @@ function RiskOverTimeChart({ points }: { points: VehicleTrendPoint[] }) {
       {hovered && hoveredIndex !== null && (
         <div style={tooltipStyle}>
           <Text strong>{hovered.label}</Text>
-          {riskSeries.map((series) => (
-            <Text key={series.key} style={{ color: series.color }}>
-              {series.label} {hovered[series.key].toFixed(3)}
-            </Text>
-          ))}
+          {activeSeries.map((series) => {
+            const value = hovered[series.key]
+            if (typeof value !== 'number') return null
+            return (
+              <Text key={series.key} style={{ color: series.color }}>
+                {series.label} {value.toFixed(3)}
+              </Text>
+            )
+          })}
         </div>
       )}
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Risk over operational time" style={chartSvgStyle}>
@@ -71,7 +77,7 @@ function RiskOverTimeChart({ points }: { points: VehicleTrendPoint[] }) {
             </text>
           </g>
         ))}
-        {riskSeries.map((series) => (
+        {activeSeries.map((series) => (
           <polyline
             key={series.key}
             fill="none"
@@ -79,20 +85,27 @@ function RiskOverTimeChart({ points }: { points: VehicleTrendPoint[] }) {
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth="2.5"
-            points={points.map((point, index) => `${xAt(index)},${yAt(point[series.key])}`).join(' ')}
+            points={points.flatMap((point, index) => {
+              const value = point[series.key]
+              return typeof value === 'number' ? [`${xAt(index)},${yAt(value)}`] : []
+            }).join(' ')}
           />
         ))}
         {points.map((point, index) => (
           <g key={point.label}>
-            {riskSeries.map((series) => (
-              <circle
-                key={series.key}
-                cx={xAt(index)}
-                cy={yAt(point[series.key])}
-                r={hoveredIndex === index ? 5 : 3.5}
-                fill={series.color}
-              />
-            ))}
+            {activeSeries.map((series) => {
+              const value = point[series.key]
+              if (typeof value !== 'number') return null
+              return (
+                <circle
+                  key={series.key}
+                  cx={xAt(index)}
+                  cy={yAt(value)}
+                  r={hoveredIndex === index ? 5 : 3.5}
+                  fill={series.color}
+                />
+              )
+            })}
             <rect
               x={xAt(index) - innerWidth / points.length / 2}
               y={top}
@@ -109,7 +122,7 @@ function RiskOverTimeChart({ points }: { points: VehicleTrendPoint[] }) {
         ))}
       </svg>
       <Space size={16} wrap>
-        {riskSeries.map((series) => (
+        {activeSeries.map((series) => (
           <Space key={series.key} size={6}>
             <span style={{ ...legendDotStyle, background: series.color }} />
             <Text type="secondary">{series.label}</Text>
@@ -133,7 +146,60 @@ function SummaryMetric({ label, value }: { label: string; value: string }) {
 
 function VehicleDetailContent({ vehicleId }: { vehicleId: string }) {
   const navigate = useNavigate()
-  const detail = getVehicleDetail(vehicleId)
+  const [detail, setDetail] = useState<VehicleDetail | null>(null)
+  const [status, setStatus] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading')
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    setStatus('loading')
+    setDetail(null)
+    setErrorMessage('')
+
+    getJson<VehicleDetail>(vehicleEndpoints.detail(vehicleId))
+      .then((data) => {
+        if (!cancelled) {
+          setDetail(data)
+          setStatus('ready')
+        }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        if (error instanceof ApiError && error.status === 404) {
+          setStatus('missing')
+          return
+        }
+        setErrorMessage(error instanceof Error ? error.message : 'Unable to load this vehicle')
+        setStatus('error')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [vehicleId])
+
+  if (status === 'loading') {
+    return (
+      <Card>
+        <Flex justify="center" style={{ padding: 32 }}>
+          <Spin />
+        </Flex>
+      </Card>
+    )
+  }
+
+  if (status === 'error') {
+    return (
+      <Card>
+        <Space direction="vertical" size={12}>
+          <Button type="link" icon={<ArrowLeftOutlined />} style={backButtonStyle} onClick={() => navigate('/vehicles')}>
+            Vehicles
+          </Button>
+          <Alert type="error" showIcon title="Unable to load this vehicle" description={errorMessage} />
+        </Space>
+      </Card>
+    )
+  }
 
   if (!detail) {
     return (
