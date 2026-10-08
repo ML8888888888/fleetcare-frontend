@@ -17,7 +17,7 @@ function Sidebar() {
         theme="dark"
         mode="inline"
         items={navigationItems}
-        selectedKeys={[location.pathname]}
+        selectedKeys={[location.pathname.startsWith('/vehicles') ? '/vehicles' : location.pathname]}
         onClick={({ key }) => navigate(key)}
       />
     </Sider>

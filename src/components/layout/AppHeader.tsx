@@ -16,7 +16,7 @@ function AppHeader() {
   return (
     <Header className="app-header">
       <Typography.Title level={4}>
-        {pageTitles[pathname] ?? 'Not Found'}
+        {pageTitles[pathname] ?? (pathname.startsWith('/vehicles/') ? 'Vehicles' : 'Not Found')}
       </Typography.Title>
       <Space size="middle">
         <BellOutlined className="header-action" />
