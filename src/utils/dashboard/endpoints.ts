@@ -1,3 +1,3 @@
 export const dashboardEndpoints = {
-  summary: '/api/v1/dashboard',
+	overview: '/api/v1/dashboard',
 } as const
