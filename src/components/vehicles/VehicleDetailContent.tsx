@@ -15,18 +15,17 @@ const { Text, Title } = Typography
 const colors = {
   blue: '#1677ff',
   green: '#389e0d',
-  orange: '#d46b08',
   red: '#cf1322',
-  yellow: '#d4b106',
   muted: '#8c8c8c',
 }
 
-const riskSeries = [
-  { key: 'risk48' as const, label: 'Risk48', color: colors.blue },
-  { key: 'risk24' as const, label: 'Risk24', color: colors.yellow },
-  { key: 'risk12' as const, label: 'Risk12', color: colors.orange },
-  { key: 'risk6' as const, label: 'Risk6', color: colors.red },
-]
+const riskClasses = ['Risk6', 'Risk12', 'Risk24', 'Risk48', 'Beyond 48'] as const
+
+function formatRiskPercent(value: string) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return value
+  return `${(number * 100).toFixed(1)}%`
+}
 
 const cardTitleStyle = { fontSize: 12, letterSpacing: 0.4, color: colors.muted }
 const sectionCardStyle = { height: '100%' }
@@ -34,101 +33,100 @@ const sectionCardStyle = { height: '100%' }
 function RiskOverTimeChart({ points }: { points: VehicleTrendPoint[] }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const width = 560
-  const height = 220
-  const left = 36
+  const height = 260
+  const left = 78
   const right = 16
   const top = 16
-  const bottom = 32
+  const bottom = 78
   const innerWidth = width - left - right
   const innerHeight = height - top - bottom
-  const activeSeries = riskSeries.filter((series) => points.some((point) => typeof point[series.key] === 'number'))
-  const xAt = (index: number) => left + (points.length === 1 ? innerWidth / 2 : (index / (points.length - 1)) * innerWidth)
-  const yAt = (value: number) => top + (1 - value) * innerHeight
+  const xAt = (index: number) => {
+    if (points.length <= 1) return left + innerWidth / 2
+    return left + (index / (points.length - 1)) * innerWidth
+  }
+  const yAt = (riskClass: string) => {
+    const index = riskClasses.indexOf(riskClass as (typeof riskClasses)[number])
+    const slot = index < 0 ? riskClasses.length - 1 : index
+    return top + (slot / (riskClasses.length - 1)) * innerHeight
+  }
+  const slot = points.length <= 1 ? innerWidth : innerWidth / Math.max(points.length - 1, 1)
+  const labelEvery = Math.max(1, Math.ceil(72 / Math.max(slot, 1)))
   const hovered = hoveredIndex === null ? null : points[hoveredIndex]
+  const line = points.flatMap((point, index) =>
+    point.riskClass ? [`${xAt(index)},${yAt(point.riskClass)}`] : [],
+  )
 
   return (
     <div style={chartFrameStyle}>
       {hovered && hoveredIndex !== null && (
         <div style={tooltipStyle}>
           <Text strong>{hovered.label}</Text>
-          {activeSeries.map((series) => {
-            const value = hovered[series.key]
-            if (typeof value !== 'number') return null
-            return (
-              <Text key={series.key} style={{ color: series.color }}>
-                {series.label} {value.toFixed(3)}
-              </Text>
-            )
-          })}
+          {hovered.riskClass && <Text style={{ color: colors.blue }}>{hovered.riskClass}</Text>}
         </div>
       )}
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Risk over operational time" style={chartSvgStyle}>
-        {[0, 0.5, 1].map((tick) => (
-          <g key={tick}>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Predicted risk class over time" style={chartSvgStyle}>
+        {riskClasses.map((riskClass) => (
+          <g key={riskClass}>
             <line
               x1={left}
               x2={width - right}
-              y1={yAt(tick)}
-              y2={yAt(tick)}
+              y1={yAt(riskClass)}
+              y2={yAt(riskClass)}
               stroke="#f0f0f0"
             />
-            <text x={left - 8} y={yAt(tick) + 4} fill={colors.muted} fontSize="11" textAnchor="end">
-              {tick.toFixed(1)}
+            <text x={left - 8} y={yAt(riskClass) + 4} fill={colors.muted} fontSize="11" textAnchor="end">
+              {riskClass}
             </text>
           </g>
         ))}
-        {activeSeries.map((series) => (
+        {line.length > 1 && (
           <polyline
-            key={series.key}
             fill="none"
-            stroke={series.color}
+            stroke={colors.blue}
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth="2.5"
-            points={points.flatMap((point, index) => {
-              const value = point[series.key]
-              return typeof value === 'number' ? [`${xAt(index)},${yAt(value)}`] : []
-            }).join(' ')}
+            points={line.join(' ')}
           />
-        ))}
+        )}
         {points.map((point, index) => (
-          <g key={point.label}>
-            {activeSeries.map((series) => {
-              const value = point[series.key]
-              if (typeof value !== 'number') return null
-              return (
-                <circle
-                  key={series.key}
-                  cx={xAt(index)}
-                  cy={yAt(value)}
-                  r={hoveredIndex === index ? 5 : 3.5}
-                  fill={series.color}
-                />
-              )
-            })}
+          <g key={`${point.label}-${index}`}>
+            {point.riskClass && (
+              <circle
+                cx={xAt(index)}
+                cy={yAt(point.riskClass)}
+                r={hoveredIndex === index ? 5 : 3.5}
+                fill={colors.blue}
+              />
+            )}
             <rect
-              x={xAt(index) - innerWidth / points.length / 2}
+              x={index === 0 ? left : (xAt(index - 1) + xAt(index)) / 2}
               y={top}
-              width={innerWidth / points.length}
+              width={Math.max(
+                (index === points.length - 1 ? width - right : (xAt(index) + xAt(index + 1)) / 2)
+                  - (index === 0 ? left : (xAt(index - 1) + xAt(index)) / 2),
+                1,
+              )}
               height={innerHeight}
               fill="transparent"
               onMouseEnter={() => setHoveredIndex(index)}
               onMouseLeave={() => setHoveredIndex(null)}
             />
-            <text x={xAt(index)} y={height - 8} fill={colors.muted} fontSize="11" textAnchor="middle">
-              {point.label}
-            </text>
+            {(index % labelEvery === 0 || index === points.length - 1) && (
+              <text
+                x={xAt(index)}
+                y={top + innerHeight + 16}
+                fill={colors.muted}
+                fontSize="11"
+                textAnchor="end"
+                transform={`rotate(-30 ${xAt(index)} ${top + innerHeight + 16})`}
+              >
+                {point.label}
+              </text>
+            )}
           </g>
         ))}
       </svg>
-      <Space size={16} wrap>
-        {activeSeries.map((series) => (
-          <Space key={series.key} size={6}>
-            <span style={{ ...legendDotStyle, background: series.color }} />
-            <Text type="secondary">{series.label}</Text>
-          </Space>
-        ))}
-      </Space>
     </div>
   )
 }
@@ -243,13 +241,13 @@ function VehicleDetailContent({ vehicleId }: { vehicleId: string }) {
           {detail.risks.map((risk) => (
             <Col key={risk.label} xs={12} sm={6}>
               <Text style={cardTitleStyle}>{risk.label}</Text>
-              <Title level={3} style={{ margin: '8px 0 0' }}>{risk.value}</Title>
+              <Title level={3} style={{ margin: '8px 0 0' }}>{formatRiskPercent(risk.value)}</Title>
             </Col>
           ))}
         </Row>
       </Card>
 
-      <Card title="RISK OVER OPERATIONAL TIME">
+      <Card title="RISK OVER TIME">
         <RiskOverTimeChart points={detail.trend} />
       </Card>
 
@@ -315,7 +313,6 @@ const tooltipStyle = {
   borderRadius: 6,
   background: '#fff',
 }
-const legendDotStyle = { display: 'inline-block', width: 8, height: 8, borderRadius: '50%' }
 const factorTrackStyle = {
   flex: 1,
   height: 8,

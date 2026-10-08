@@ -16,7 +16,7 @@ import type { TableColumnsType } from 'antd'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getJson } from '../../utils/http'
-import type { VehicleListResponse, VehicleRecord, VehicleStatus } from '../../utils/Vehicles/dataQueries'
+import { vehicleClasses, type VehicleListResponse, type VehicleRecord, type VehicleStatus } from '../../utils/Vehicles/dataQueries'
 import { vehicleEndpoints } from '../../utils/Vehicles/endpoints'
 
 const { Text, Title } = Typography
@@ -33,10 +33,16 @@ const statusConfig: Record<VehicleStatus, StatusConfig> = {
   'Enhanced Monitor': { color: 'gold', range: '12-24 steps', action: 'Monitor' },
   Monitor: { color: 'blue', range: '24-48 steps', action: 'Monitor' },
   Continue: { color: 'green', range: '48+ steps', action: 'Continue' },
-  'Manual Review': { color: 'purple', range: 'Review', action: 'Review' },
 }
 
 const fallbackStatus: StatusConfig = { color: 'default', range: '', action: 'Open' }
+const stateColors: Record<string, string> = {
+  C0: 'green',
+  C1: 'blue',
+  C2: 'gold',
+  C3: 'orange',
+  C4: 'red',
+}
 const pageSize = 10
 
 function VehicleTableContent() {
@@ -102,12 +108,9 @@ function VehicleTableContent() {
     },
     {
       title: 'Predicted Class',
-      dataIndex: 'predictedClass',
-      key: 'predictedClass',
-      render: (status: VehicleStatus) => {
-        const config = statusConfig[status] ?? fallbackStatus
-        return <Tag color={config.color}>{config.range ? `${status} : ${config.range}` : status}</Tag>
-      },
+      dataIndex: 'state',
+      key: 'state',
+      render: (state: string) => <Tag color={stateColors[state] ?? 'default'}>{state}</Tag>,
     },
     {
       title: 'Risk Score',
@@ -131,7 +134,7 @@ function VehicleTableContent() {
             style={actionStyle}
             onClick={() => navigate(`/vehicles/${vehicle.vehicleId}`)}
           >
-            {config.action}
+            {vehicle.predictedClass || config.action}
           </Button>
         )
       },
@@ -157,12 +160,10 @@ function VehicleTableContent() {
             style={{ minWidth: 180 }}
             options={[
               { value: 'All classes', label: 'All classes' },
-              { value: 'Priority Inspect', label: 'Priority Inspect' },
-              { value: 'Inspect', label: 'Inspect' },
-              { value: 'Enhanced Monitor', label: 'Enhanced Monitor' },
-              { value: 'Monitor', label: 'Monitor' },
-              { value: 'Continue', label: 'Continue' },
-              { value: 'Manual Review', label: 'Manual Review' },
+              ...vehicleClasses.map((vehicleClass) => ({
+                value: vehicleClass,
+                label: vehicleClass,
+              })),
             ]}
             onChange={(value) => {
               setSelectedStatus(value)

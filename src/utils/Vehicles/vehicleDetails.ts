@@ -1,9 +1,10 @@
 export type VehicleTrendPoint = {
   label: string
-  risk48: number | null
-  risk24: number | null
-  risk12: number | null
-  risk6: number | null
+  riskClass?: string
+  risk48?: number | null
+  risk24?: number | null
+  risk12?: number | null
+  risk6?: number | null
 }
 
 export type VehicleRiskReading = {
