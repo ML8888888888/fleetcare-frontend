@@ -1,6 +1,7 @@
-import { ArrowRightOutlined } from '@ant-design/icons'
+import { ArrowDownOutlined, ArrowRightOutlined, ArrowUpOutlined } from '@ant-design/icons'
 import { Alert, Card, Col, Divider, List, Row, Skeleton, Space, Tag, Typography } from 'antd'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchDashboard } from '../../utils/dashboard/dataQueries'
 import type { DashboardResponse } from '../../utils/dashboard/dataQueries'
 
@@ -70,7 +71,19 @@ function DashboardContent() {
     { title: 'FLEET OVERVIEW', value: dashboard.fleet.total.toLocaleString(), details: [{ label: `${dashboard.fleet.analyzed.toLocaleString()} Analyzed`, type: 'success' as const }] },
     { title: 'AT RISK', value: dashboard.risk.at_risk.toLocaleString(), details: [{ label: `${dashboard.risk.high} High`, type: 'warning' as const }, { label: `${dashboard.risk.critical} Critical`, type: 'danger' as const }] },
     { title: 'MAINTENANCE PLAN', value: dashboard.maintenance_plan.immediate.toLocaleString(), details: [{ label: `${dashboard.maintenance_plan.short_term} Short term`, type: 'warning' as const }, { label: `${dashboard.maintenance_plan.monitor} Monitor`, type: 'secondary' as const }] },
-    { title: 'AVG. RISK SCORE', value: `${dashboard.risk.average_score.toFixed(2)} /100`, details: [{ label: 'Fleet average', type: 'secondary' as const }] },
+    {
+      title: 'AVG. RISK SCORE',
+      value: `${dashboard.risk.average_score.toFixed(2)} /100`,
+      details: [],
+      trend: dashboard.risk.average_score_change === undefined
+        ? null
+        : dashboard.risk.average_score_trend === 'UP' || dashboard.risk.average_score_trend === 'DOWN'
+          ? {
+            direction: dashboard.risk.average_score_trend,
+            change: Math.abs(dashboard.risk.average_score_change),
+            }
+          : null,
+    },
   ]
   const riskSnapshotByAction = new Map(dashboard.risk_snapshot.map((item) => [item.action, item]))
   const riskSnapshotData = riskSnapshotActions.map((action) => {
@@ -108,6 +121,15 @@ function DashboardContent() {
               <Title level={2} style={{ margin: '8px 0 16px', fontSize: 30 }}>
                 {kpi.value}
               </Title>
+              {'trend' in kpi && kpi.trend && (
+                <Text
+                  type={kpi.trend.direction === 'DOWN' ? 'success' : kpi.trend.direction === 'UP' ? 'danger' : 'secondary'}
+                  style={trendStyle}
+                >
+                  {kpi.trend.direction === 'DOWN' ? <ArrowDownOutlined /> : <ArrowUpOutlined />}
+                  {kpi.trend.change.toFixed(2)}
+                </Text>
+              )}
               <Space size={12} wrap>
                 {kpi.details.map((detail) => (
                   <Text key={detail.label} type={detail.type} style={{ fontSize: 13 }}>
@@ -124,7 +146,7 @@ function DashboardContent() {
         <Col xs={24} lg={16}>
           <Card
             title="RISK SNAPSHOT"
-            extra={<a href="#analytics">Full analytics <ArrowRightOutlined /></a>}
+            extra={<Link to="/vehicles">Full analytics <ArrowRightOutlined /></Link>}
             style={sectionCardStyle}
           >
             <Row align="middle" gutter={[32, 24]}>
@@ -155,7 +177,6 @@ function DashboardContent() {
         <Col xs={24} lg={8}>
           <Card
             title="TOP RISK ALERTS"
-            extra={<a href="#alerts">View all <ArrowRightOutlined /></a>}
             style={sectionCardStyle}
           >
             <List
@@ -263,5 +284,6 @@ const chartTooltipStyle = {
 const legendDotStyle = { width: 8, height: 8, borderRadius: '50%' }
 const summaryBlockStyle = { position: 'relative' as const, minHeight: 88, padding: '4px 20px' }
 const dividerStyle = { position: 'absolute' as const, left: 0, top: 0, height: '100%' }
+const trendStyle = { marginBottom: 8, fontSize: 13 }
 
 export default DashboardContent
