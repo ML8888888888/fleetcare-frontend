@@ -12,6 +12,7 @@ const colors = {
   orange: '#d46b08',
   red: '#cf1322',
   yellow: '#d4b106',
+  purple: '#722ed1',
   muted: '#8c8c8c',
 }
 
@@ -24,7 +25,19 @@ const riskActionColors: Record<string, string> = {
   ENHANCED_MONITOR: '#d4b106',
   INSPECT: '#d46b08',
   PRIORITY_INSPECT: '#cf1322',
+  MANUAL_REVIEW: '#722ed1',
+  COLLECT_MORE_DATA: '#8c8c8c',
 }
+
+const riskSnapshotActions = [
+  'CONTINUE',
+  'MONITOR',
+  'ENHANCED_MONITOR',
+  'INSPECT',
+  'PRIORITY_INSPECT',
+  'MANUAL_REVIEW',
+  'COLLECT_MORE_DATA',
+] as const
 
 type RiskSnapshotChartItem = {
   label: string
@@ -59,12 +72,17 @@ function DashboardContent() {
     { title: 'MAINTENANCE PLAN', value: dashboard.maintenance_plan.immediate.toLocaleString(), details: [{ label: `${dashboard.maintenance_plan.short_term} Short term`, type: 'warning' as const }, { label: `${dashboard.maintenance_plan.monitor} Monitor`, type: 'secondary' as const }] },
     { title: 'AVG. RISK SCORE', value: `${dashboard.risk.average_score.toFixed(2)} /100`, details: [{ label: 'Fleet average', type: 'secondary' as const }] },
   ]
-  const riskSnapshotData = dashboard.risk_snapshot.map((item) => ({
-    label: item.action.replaceAll('_', ' '),
-    count: item.count,
-    percentage: item.percentage,
-    color: riskActionColors[item.action] ?? colors.muted,
-  }))
+  const riskSnapshotByAction = new Map(dashboard.risk_snapshot.map((item) => [item.action, item]))
+  const riskSnapshotData = riskSnapshotActions.map((action) => {
+    const item = riskSnapshotByAction.get(action)
+
+    return {
+      label: action.replaceAll('_', ' '),
+      count: item?.count ?? 0,
+      percentage: item?.percentage ?? 0,
+      color: riskActionColors[action],
+    }
+  })
   const riskClasses = riskSnapshotData.map((item) => ({
     ...item,
     count: item.count.toLocaleString(),
@@ -77,6 +95,7 @@ function DashboardContent() {
     { title: 'Immediate', value: dashboard.maintenance_plan.immediate.toLocaleString(), color: colors.red },
     { title: 'Short term', value: dashboard.maintenance_plan.short_term.toLocaleString(), color: colors.orange },
     { title: 'Monitor', value: dashboard.maintenance_plan.monitor.toLocaleString(), color: colors.blue },
+    { title: 'Manual review', value: dashboard.maintenance_plan.manual_review.toLocaleString(), color: colors.purple },
   ]
 
   return (

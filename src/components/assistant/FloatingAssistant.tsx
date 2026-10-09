@@ -1,27 +1,87 @@
 import { CloseOutlined, RobotOutlined, SendOutlined } from '@ant-design/icons'
-import { Button, Card, FloatButton, Input, List, Space } from 'antd'
+import { Alert, Button, Card, FloatButton, Input, List, Space } from 'antd'
 import type { TextAreaRef } from 'antd/es/input/TextArea'
+import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
+import { sendChatMessage } from '../../utils/chat/dataQueries'
 
 type ChatMessage = {
-  id: number
+  id: string
   role: 'assistant' | 'user'
   content: string
 }
 
 const initialMessages: ChatMessage[] = [
   {
-    id: 1,
+    id: 'welcome',
     role: 'assistant',
     content: 'Hello! I can help you review fleet risk and maintenance priorities.',
   },
 ]
 
+function createMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>
+    }
+
+    return <span key={`${part}-${index}`}>{part}</span>
+  })
+}
+
+function MarkdownMessage({ content }: { content: string }) {
+  const lines = content.replace(/\r\n/g, '\n').split('\n')
+  const blocks: ReactNode[] = []
+  let listItems: string[] = []
+
+  const flushList = () => {
+    if (listItems.length === 0) return
+
+    blocks.push(
+      <ul key={`list-${blocks.length}`} style={markdownListStyle}>
+        {listItems.map((item, index) => (
+          <li key={`${item}-${index}`}>{renderInlineMarkdown(item)}</li>
+        ))}
+      </ul>,
+    )
+    listItems = []
+  }
+
+  lines.forEach((line, index) => {
+    const listItem = line.match(/^\s*[-*]\s+(.+)$/)
+    if (listItem) {
+      listItems.push(listItem[1])
+      return
+    }
+
+    flushList()
+    if (line.trim() === '') return
+
+    blocks.push(
+      <p key={`paragraph-${index}`} style={markdownParagraphStyle}>
+        {renderInlineMarkdown(line)}
+      </p>,
+    )
+  })
+  flushList()
+
+  return <>{blocks}</>
+}
+
 function FloatingAssistant() {
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState(initialMessages)
+  const [isSending, setIsSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<TextAreaRef>(null)
+  const requestControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (isChatOpen) {
@@ -29,23 +89,39 @@ function FloatingAssistant() {
     }
   }, [isChatOpen])
 
-  const sendMessage = () => {
+  useEffect(() => {
+    return () => requestControllerRef.current?.abort()
+  }, [])
+
+  const sendMessage = async () => {
     const trimmedMessage = message.trim()
 
-    if (!trimmedMessage) {
+    if (!trimmedMessage || isSending) {
       return
     }
 
-    setMessages((currentMessages) => [
-      ...currentMessages,
-      { id: Date.now(), role: 'user', content: trimmedMessage },
-      {
-        id: Date.now() + 1,
-        role: 'assistant',
-        content: 'Thanks. I am checking the latest fleet signals for you.',
-      },
-    ])
+    const controller = new AbortController()
+    requestControllerRef.current = controller
+    setError(null)
+    setIsSending(true)
+    setMessages((currentMessages) => [...currentMessages, { id: createMessageId(), role: 'user', content: trimmedMessage }])
     setMessage('')
+
+    try {
+      const response = await sendChatMessage(trimmedMessage, controller.signal)
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        { id: createMessageId(), role: 'assistant', content: response.answer },
+      ])
+    } catch (requestError: unknown) {
+      if (requestError instanceof DOMException && requestError.name === 'AbortError') return
+      setError(requestError instanceof Error ? requestError.message : 'Unable to get a response from the AI assistant')
+    } finally {
+      if (requestControllerRef.current === controller) {
+        requestControllerRef.current = null
+        setIsSending(false)
+      }
+    }
   }
 
   return (
@@ -86,16 +162,22 @@ function FloatingAssistant() {
                       ...(chatMessage.role === 'user' ? userBubbleStyle : assistantBubbleStyle),
                     }}
                   >
-                    {chatMessage.content}
+                    {chatMessage.role === 'assistant' ? (
+                      <MarkdownMessage content={chatMessage.content} />
+                    ) : (
+                      <span style={messageContentStyle}>{chatMessage.content}</span>
+                    )}
                   </div>
                 </List.Item>
               )}
             />
           </div>
+          {error && <Alert type="error" showIcon message="Assistant unavailable" description={error} style={errorStyle} />}
           <Space.Compact style={{ width: '100%' }}>
             <Input.TextArea
               ref={inputRef}
               value={message}
+              disabled={isSending}
               autoSize={{ minRows: 1, maxRows: 3 }}
               placeholder="Ask about your fleet..."
               aria-label="Message AI Assistant"
@@ -107,7 +189,7 @@ function FloatingAssistant() {
                 }
               }}
             />
-            <Button type="primary" icon={<SendOutlined />} aria-label="Send message" onClick={sendMessage} />
+            <Button type="primary" loading={isSending} icon={<SendOutlined />} aria-label="Send message" onClick={sendMessage} />
           </Space.Compact>
         </Card>
       )}
@@ -127,8 +209,8 @@ const chatWindowStyle = {
   position: 'fixed' as const,
   right: 24,
   bottom: 88,
-  width: 'min(380px, calc(100vw - 32px))',
-  height: 540,
+  width: 'min(520px, calc(100vw - 32px))',
+  height: 'min(680px, calc(100vh - 120px))',
   zIndex: 1000,
   display: 'flex',
   flexDirection: 'column' as const,
@@ -144,8 +226,12 @@ const chatBodyStyle = {
 }
 const messageListStyle = { flex: 1, minHeight: 0, overflowY: 'auto' as const, marginBottom: 12 }
 const messageBubbleStyle = { maxWidth: '82%', padding: '8px 12px', borderRadius: 8, lineHeight: 1.5 }
+const messageContentStyle = { whiteSpace: 'pre-wrap' as const }
+const markdownParagraphStyle = { margin: 0 }
+const markdownListStyle = { margin: 0, paddingLeft: 20 }
 const assistantBubbleStyle = { background: '#f0f5ff', color: '#1d39c4' }
 const userBubbleStyle = { background: '#1677ff', color: '#fff' }
+const errorStyle = { marginBottom: 12 }
 const floatButtonStyle = { right: 24, bottom: 24, zIndex: 1001 }
 
 export default FloatingAssistant

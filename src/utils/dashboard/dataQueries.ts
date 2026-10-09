@@ -5,7 +5,7 @@ export type DashboardResponse = {
 	fleet: { total: number; analyzed: number }
 	risk: { at_risk: number; high: number; critical: number; average_score: number }
 	risk_snapshot: Array<{ action: string; count: number; percentage: number }>
-	maintenance_plan: { immediate: number; short_term: number; monitor: number }
+	maintenance_plan: { immediate: number; short_term: number; monitor: number; manual_review: number }
 	top_risk_alerts: Array<{
 		analysis_id: number
 		vehicle_id: number
@@ -20,6 +20,7 @@ export type DashboardResponse = {
 export async function fetchDashboard(signal?: AbortSignal): Promise<DashboardResponse> {
 	const response = await fetch(`${API_BASE_URL}${dashboardEndpoints.overview}`, {
 		headers: { Accept: 'application/json' },
+		cache: 'no-store',
 		signal,
 	})
 
