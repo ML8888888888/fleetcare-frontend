@@ -44,6 +44,7 @@ type RiskSnapshotChartItem = {
   label: string
   count: number
   percentage: number
+  chartPercentage: number
   color: string
 }
 
@@ -86,7 +87,7 @@ function DashboardContent() {
     },
   ]
   const riskSnapshotByAction = new Map(dashboard.risk_snapshot.map((item) => [item.action, item]))
-  const riskSnapshotData = riskSnapshotActions.map((action) => {
+  const riskSnapshotItems = riskSnapshotActions.map((action) => {
     const item = riskSnapshotByAction.get(action)
 
     return {
@@ -96,6 +97,11 @@ function DashboardContent() {
       color: riskActionColors[action],
     }
   })
+  const riskSnapshotTotal = riskSnapshotItems.reduce((total, item) => total + item.count, 0)
+  const riskSnapshotData = riskSnapshotItems.map((item) => ({
+    ...item,
+    chartPercentage: riskSnapshotTotal > 0 ? (item.count / riskSnapshotTotal) * 100 : 0,
+  }))
   const riskClasses = riskSnapshotData.map((item) => ({
     ...item,
     count: item.count.toLocaleString(),
@@ -223,7 +229,7 @@ function RiskSnapshotChart({ data }: { data: RiskSnapshotChartItem[] }) {
   let startAngle = -90
 
   const segments = data.map((item) => {
-    const endAngle = startAngle + item.percentage * 3.6
+    const endAngle = startAngle + item.chartPercentage * 3.6
     const startRadians = (startAngle * Math.PI) / 180
     const endRadians = (endAngle * Math.PI) / 180
     const startX = 100 + 90 * Math.cos(startRadians)
