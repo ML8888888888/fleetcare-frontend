@@ -37,3 +37,25 @@ export async function getJson<T>(
 
   return response.json() as Promise<T>
 }
+
+export async function patchJson<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    let detail = response.statusText
+    try {
+      const payload = await response.json()
+      if (typeof payload?.detail === 'string') {
+        detail = payload.detail
+      }
+    } catch {
+      // The response body is not JSON.
+    }
+    throw new ApiError(response.status, detail)
+  }
+
+  return response.json() as Promise<T>
+}

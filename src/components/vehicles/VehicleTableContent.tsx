@@ -8,14 +8,15 @@ import {
   Pagination,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Typography,
 } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { getJson } from '../../utils/http'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { getJson, patchJson } from '../../utils/http'
 import { vehicleClasses, type VehicleListResponse, type VehicleRecord, type VehicleStatus } from '../../utils/Vehicles/dataQueries'
 import { vehicleEndpoints } from '../../utils/Vehicles/endpoints'
 
@@ -36,6 +37,13 @@ const statusConfig: Record<VehicleStatus, StatusConfig> = {
 }
 
 const fallbackStatus: StatusConfig = { color: 'default', range: '', action: 'Open' }
+const actionColors: Record<VehicleStatus, { background: string; color: string }> = {
+  Continue: { background: '#e6f4ff', color: 'rgba(0, 0, 0, 0.88)' },
+  Monitor: { background: '#1677ff', color: '#fff' },
+  'Enhanced Monitor': { background: '#d4b106', color: '#fff' },
+  Inspect: { background: '#d46b08', color: '#fff' },
+  'Priority Inspect': { background: '#cf1322', color: '#fff' },
+}
 const stateColors: Record<string, string> = {
   C0: 'green',
   C1: 'blue',
@@ -47,22 +55,47 @@ const pageSize = 10
 
 function VehicleTableContent() {
   const navigate = useNavigate()
-  const [searchInput, setSearchInput] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedStatus, setSelectedStatus] = useState('All classes')
-  const [page, setPage] = useState(1)
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const page = Math.max(1, Number(searchParams.get('page')) || 1)
+  const searchTerm = searchParams.get('q') ?? ''
+  const selectedStatus = searchParams.get('class') || 'All classes'
+  const [searchInput, setSearchInput] = useState(searchTerm)
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const [savingId, setSavingId] = useState<string | null>(null)
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setSearchTerm(searchInput.trim())
-      setPage(1)
+      const next = searchInput.trim()
+      if (next === searchTerm) return
+      setSearchParams((current) => {
+        const params = new URLSearchParams(current)
+        if (next) params.set('q', next)
+        else params.delete('q')
+        params.delete('page')
+        return params
+      }, { replace: true })
     }, 300)
     return () => window.clearTimeout(timer)
-  }, [searchInput])
+  }, [searchInput, searchTerm, setSearchParams])
+
+  const openVehicle = (vehicleId: string) => {
+    navigate(`/vehicles/${vehicleId}`, {
+      state: { from: `${location.pathname}${location.search}` },
+    })
+  }
+
+  const updatePage = (nextPage: number) => {
+    setSearchParams((current) => {
+      const params = new URLSearchParams(current)
+      if (nextPage <= 1) params.delete('page')
+      else params.set('page', String(nextPage))
+      return params
+    }, { replace: true })
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -100,8 +133,9 @@ function VehicleTableContent() {
       title: 'Vehicle ID',
       dataIndex: 'vehicleId',
       key: 'vehicleId',
+      width: '20%',
       render: (vehicleId: string) => (
-        <Typography.Link onClick={() => navigate(`/vehicles/${vehicleId}`)}>
+        <Typography.Link onClick={() => openVehicle(vehicleId)}>
           {vehicleId}
         </Typography.Link>
       ),
@@ -110,34 +144,69 @@ function VehicleTableContent() {
       title: 'Predicted Class',
       dataIndex: 'state',
       key: 'state',
+      width: '20%',
       render: (state: string) => <Tag color={stateColors[state] ?? 'default'}>{state}</Tag>,
     },
     {
       title: 'Risk Score',
       dataIndex: 'riskScore',
       key: 'riskScore',
+      width: '20%',
       render: (score: number) => <Text strong>{score} /100</Text>,
     },
     {
       title: 'Action',
       key: 'action',
+      width: '20%',
       render: (_, vehicle) => {
         const config = statusConfig[vehicle.predictedClass] ?? fallbackStatus
-        const actionStyle = vehicle.predictedClass === 'Inspect'
-          ? { background: '#faad14', borderColor: '#faad14', color: '#fff' }
-          : undefined
+        const actionColor = actionColors[vehicle.predictedClass]
         return (
           <Button
             size="small"
             type="primary"
-            danger={vehicle.predictedClass === 'Priority Inspect'}
-            style={actionStyle}
-            onClick={() => navigate(`/vehicles/${vehicle.vehicleId}`)}
+            style={actionColor ? { background: actionColor.background, borderColor: actionColor.background, color: actionColor.color } : undefined}
+            onClick={() => openVehicle(vehicle.vehicleId)}
           >
             {vehicle.predictedClass || config.action}
           </Button>
         )
       },
+    },
+    {
+      title: 'Maintenance',
+      dataIndex: 'inMaintenance',
+      key: 'inMaintenance',
+      width: '20%',
+      render: (inMaintenance: boolean, vehicle) => (
+        <Switch
+          checked={inMaintenance}
+          checkedChildren="On"
+          unCheckedChildren="Off"
+          loading={savingId === vehicle.vehicleId}
+          onChange={(checked) => {
+            const previous = vehicle.inMaintenance
+            setVehicles((current) =>
+              current.map((item) =>
+                item.vehicleId === vehicle.vehicleId ? { ...item, inMaintenance: checked } : item,
+              ),
+            )
+            setSavingId(vehicle.vehicleId)
+            patchJson<{ inMaintenance: boolean }>(vehicleEndpoints.maintenance(vehicle.vehicleId), {
+              inMaintenance: checked,
+            })
+              .catch((error: unknown) => {
+                setVehicles((current) =>
+                  current.map((item) =>
+                    item.vehicleId === vehicle.vehicleId ? { ...item, inMaintenance: previous } : item,
+                  ),
+                )
+                setErrorMessage(error instanceof Error ? error.message : 'Unable to update maintenance')
+              })
+              .finally(() => setSavingId(null))
+          }}
+        />
+      ),
     },
   ]
 
@@ -151,6 +220,7 @@ function VehicleTableContent() {
         <Space wrap>
           <Input.Search
             allowClear
+            value={searchInput}
             placeholder="Search vehicle ID..."
             prefix={<SearchOutlined />}
             onChange={(event) => setSearchInput(event.target.value)}
@@ -166,8 +236,13 @@ function VehicleTableContent() {
               })),
             ]}
             onChange={(value) => {
-              setSelectedStatus(value)
-              setPage(1)
+              setSearchParams((current) => {
+                const params = new URLSearchParams(current)
+                if (value === 'All classes') params.delete('class')
+                else params.set('class', value)
+                params.delete('page')
+                return params
+              }, { replace: true })
             }}
           />
         </Space>
@@ -183,6 +258,7 @@ function VehicleTableContent() {
         loading={loading}
         pagination={false}
         size="small"
+        tableLayout="fixed"
       />
       <Flex justify="flex-end" align="center" gap={16} wrap style={paginationStyle}>
         <Text type="secondary">Showing {from} to {to} of {total.toLocaleString()} vehicles</Text>
@@ -191,7 +267,7 @@ function VehicleTableContent() {
           pageSize={pageSize}
           total={total}
           showSizeChanger={false}
-          onChange={setPage}
+          onChange={updatePage}
         />
       </Flex>
     </Card>

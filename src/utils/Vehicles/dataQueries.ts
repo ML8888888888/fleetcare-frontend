@@ -18,6 +18,7 @@ export type VehicleRecord = {
   state: string
   predictedClass: VehicleStatus
   riskScore: number
+  inMaintenance: boolean
 }
 
 export type VehicleListResponse = {

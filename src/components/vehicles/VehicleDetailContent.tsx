@@ -5,7 +5,7 @@ import {
 } from '@ant-design/icons'
 import { Alert, Button, Card, Col, Flex, List, Row, Space, Spin, Tag, Typography } from 'antd'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { ApiError, getJson } from '../../utils/http'
 import { vehicleEndpoints } from '../../utils/Vehicles/endpoints'
 import type { VehicleDetail, VehicleTrendPoint } from '../../utils/Vehicles/vehicleDetails'
@@ -28,6 +28,13 @@ function formatRiskPercent(value: string) {
 }
 
 const cardTitleStyle = { fontSize: 12, letterSpacing: 0.4, color: colors.muted }
+
+function vehiclesReturnTarget(state: unknown) {
+  if (!state || typeof state !== 'object' || !('from' in state)) return null
+  const from = (state as { from: unknown }).from
+  if (from === '/vehicles' || (typeof from === 'string' && from.startsWith('/vehicles?'))) return from
+  return null
+}
 const sectionCardStyle = { height: '100%' }
 
 function RiskOverTimeChart({ points }: { points: VehicleTrendPoint[] }) {
@@ -144,6 +151,12 @@ function SummaryMetric({ label, value }: { label: string; value: string }) {
 
 function VehicleDetailContent({ vehicleId }: { vehicleId: string }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const returnTarget = vehiclesReturnTarget(location.state)
+  const backToVehicles = () => {
+    if (returnTarget) navigate(-1)
+    else navigate('/vehicles')
+  }
   const [detail, setDetail] = useState<VehicleDetail | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading')
   const [errorMessage, setErrorMessage] = useState('')
@@ -190,7 +203,7 @@ function VehicleDetailContent({ vehicleId }: { vehicleId: string }) {
     return (
       <Card>
         <Space direction="vertical" size={12}>
-          <Button type="link" icon={<ArrowLeftOutlined />} style={backButtonStyle} onClick={() => navigate('/vehicles')}>
+          <Button type="link" icon={<ArrowLeftOutlined />} style={backButtonStyle} onClick={backToVehicles}>
             Vehicles
           </Button>
           <Alert type="error" showIcon title="Unable to load this vehicle" description={errorMessage} />
@@ -203,7 +216,7 @@ function VehicleDetailContent({ vehicleId }: { vehicleId: string }) {
     return (
       <Card>
         <Space direction="vertical" size={12}>
-          <Button type="link" icon={<ArrowLeftOutlined />} style={backButtonStyle} onClick={() => navigate('/vehicles')}>
+          <Button type="link" icon={<ArrowLeftOutlined />} style={backButtonStyle} onClick={backToVehicles}>
             Vehicles
           </Button>
           <Title level={4} style={{ margin: 0 }}>Vehicle not found</Title>
@@ -215,7 +228,7 @@ function VehicleDetailContent({ vehicleId }: { vehicleId: string }) {
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Button type="link" icon={<ArrowLeftOutlined />} style={backButtonStyle} onClick={() => navigate('/vehicles')}>
+      <Button type="link" icon={<ArrowLeftOutlined />} style={backButtonStyle} onClick={backToVehicles}>
         Vehicles
       </Button>
 
