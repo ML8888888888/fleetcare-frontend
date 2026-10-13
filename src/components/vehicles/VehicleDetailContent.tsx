@@ -260,9 +260,35 @@ function VehicleDetailContent({ vehicleId }: { vehicleId: string }) {
         </Row>
       </Card>
 
-      <Card title="RISK OVER TIME">
-        <RiskOverTimeChart points={detail.trend} />
-      </Card>
+      <Row gutter={[16, 16]} align="stretch">
+        <Col xs={24} lg={12}>
+          <Card title="RISK OVER TIME" style={sectionCardStyle}>
+            <RiskOverTimeChart points={detail.trend} />
+          </Card>
+        </Col>
+        <Col xs={24} lg={12}>
+          <Card title="KEY FACTORS BEHIND THE PREDICTION" style={sectionCardStyle}>
+            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+              {detail.factors.map((factor) => (
+                <div key={factor.name}>
+                  <Flex justify="space-between" align="center" style={{ marginBottom: 6 }}>
+                    <Text>{factor.name}</Text>
+                    <ArrowUpOutlined style={{ color: colors.red }} />
+                  </Flex>
+                  <div style={factorTrackStyle} aria-hidden>
+                    <div style={{ ...factorBarStyle, width: `${Math.round(factor.impact * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+              <Alert
+                type="warning"
+                showIcon
+                title="Features are anonymised; this does not identify a specific mechanical fault."
+              />
+            </Space>
+          </Card>
+        </Col>
+      </Row>
 
       <Card title="WHY THIS ACTION?">
         <Space direction="vertical" size={8} style={{ width: '100%' }}>
@@ -281,27 +307,6 @@ function VehicleDetailContent({ vehicleId }: { vehicleId: string }) {
                 </Space>
               </List.Item>
             )}
-          />
-        </Space>
-      </Card>
-
-      <Card title="KEY FACTORS BEHIND THE PREDICTION">
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          {detail.factors.map((factor) => (
-            <div key={factor.name}>
-              <Flex justify="space-between" align="center" style={{ marginBottom: 6 }}>
-                <Text>{factor.name}</Text>
-                <ArrowUpOutlined style={{ color: colors.red }} />
-              </Flex>
-              <div style={factorTrackStyle} aria-hidden>
-                <div style={{ ...factorBarStyle, width: `${Math.round(factor.impact * 100)}%` }} />
-              </div>
-            </div>
-          ))}
-          <Alert
-            type="warning"
-            showIcon
-            title="Features are anonymised; this does not identify a specific mechanical fault."
           />
         </Space>
       </Card>
