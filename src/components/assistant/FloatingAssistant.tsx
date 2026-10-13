@@ -38,30 +38,51 @@ function renderInlineMarkdown(text: string): ReactNode[] {
 function MarkdownMessage({ content }: { content: string }) {
   const lines = content.replace(/\r\n/g, '\n').split('\n')
   const blocks: ReactNode[] = []
-  let listItems: string[] = []
+  let listItems: { content: string; ordered: boolean }[] = []
 
   const flushList = () => {
     if (listItems.length === 0) return
 
+    const ListTag = listItems[0].ordered ? 'ol' : 'ul'
     blocks.push(
-      <ul key={`list-${blocks.length}`} style={markdownListStyle}>
+      <ListTag key={`list-${blocks.length}`} style={markdownListStyle}>
         {listItems.map((item, index) => (
-          <li key={`${item}-${index}`}>{renderInlineMarkdown(item)}</li>
+          <li key={`${item.content}-${index}`}>{renderInlineMarkdown(item.content)}</li>
         ))}
-      </ul>,
+      </ListTag>,
     )
     listItems = []
   }
 
   lines.forEach((line, index) => {
-    const listItem = line.match(/^\s*[-*]\s+(.+)$/)
+    const unorderedListItem = line.match(/^\s*[-*]\s+(.+)$/)
+    const orderedListItem = line.match(/^\s*\d+[.)]\s+(.+)$/)
+    const listItem = unorderedListItem ?? orderedListItem
+
     if (listItem) {
-      listItems.push(listItem[1])
+      const ordered = orderedListItem !== null
+      if (listItems.length > 0 && listItems[0].ordered !== ordered) {
+        flushList()
+      }
+      listItems.push({ content: listItem[1], ordered })
       return
     }
 
     flushList()
     if (line.trim() === '') return
+
+    const heading = line.match(/^\s*(#{1,6})\s+(.+)$/)
+    if (heading) {
+      const level = heading[1].length
+      const headingTags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const
+      const HeadingTag = headingTags[level - 1]
+      blocks.push(
+        <HeadingTag key={`heading-${index}`} style={markdownHeadingStyle}>
+          {renderInlineMarkdown(heading[2])}
+        </HeadingTag>,
+      )
+      return
+    }
 
     blocks.push(
       <p key={`paragraph-${index}`} style={markdownParagraphStyle}>
@@ -229,6 +250,7 @@ const messageBubbleStyle = { maxWidth: '82%', padding: '8px 12px', borderRadius:
 const messageContentStyle = { whiteSpace: 'pre-wrap' as const }
 const markdownParagraphStyle = { margin: 0 }
 const markdownListStyle = { margin: 0, paddingLeft: 20 }
+const markdownHeadingStyle = { margin: '8px 0 4px', fontSize: 15 }
 const assistantBubbleStyle = { background: '#f0f5ff', color: '#1d39c4' }
 const userBubbleStyle = { background: '#1677ff', color: '#fff' }
 const errorStyle = { marginBottom: 12 }

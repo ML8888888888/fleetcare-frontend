@@ -31,13 +31,12 @@ const riskActionColors: Record<string, string> = {
 }
 
 const riskSnapshotActions = [
-  'CONTINUE',
-  'MONITOR',
-  'ENHANCED_MONITOR',
-  'INSPECT',
   'PRIORITY_INSPECT',
+  'INSPECT',
+  'ENHANCED_MONITOR',
+  'MONITOR',
+  'CONTINUE',
   'MANUAL_REVIEW',
-  'COLLECT_MORE_DATA',
 ] as const
 
 type RiskSnapshotChartItem = {
@@ -169,9 +168,10 @@ function DashboardContent() {
                         <span style={{ ...legendDotStyle, background: riskClass.color }} />
                         <Text>{riskClass.label}</Text>
                       </Space>
-                      <Text strong>
-                        {riskClass.count} <Text type="secondary">{riskClass.percentage}</Text>
-                      </Text>
+                      <span style={riskSnapshotValueStyle}>
+                        <Text strong style={riskSnapshotCountStyle}>{riskClass.count}</Text>
+                        <Text type="secondary" style={riskSnapshotPercentageStyle}>{riskClass.percentage}</Text>
+                      </span>
                     </List.Item>
                   )}
                 />
@@ -288,6 +288,9 @@ const chartTooltipStyle = {
 }
 
 const legendDotStyle = { width: 8, height: 8, borderRadius: '50%' }
+const riskSnapshotValueStyle = { display: 'grid', gridTemplateColumns: 'minmax(56px, auto) 52px', columnGap: 8, alignItems: 'baseline' }
+const riskSnapshotCountStyle = { textAlign: 'right' as const }
+const riskSnapshotPercentageStyle = { textAlign: 'right' as const }
 const summaryBlockStyle = { position: 'relative' as const, minHeight: 88, padding: '4px 20px' }
 const dividerStyle = { position: 'absolute' as const, left: 0, top: 0, height: '100%' }
 const trendStyle = { marginBottom: 8, fontSize: 13 }
