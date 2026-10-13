@@ -20,24 +20,7 @@ const colors = {
 const cardTitleStyle = { fontSize: 12, letterSpacing: 0.5, color: colors.muted }
 const sectionCardStyle = { height: '100%' }
 
-const riskActionColors: Record<string, string> = {
-  CONTINUE: '#e6f4ff',
-  MONITOR: '#1677ff',
-  ENHANCED_MONITOR: '#d4b106',
-  INSPECT: '#d46b08',
-  PRIORITY_INSPECT: '#cf1322',
-  MANUAL_REVIEW: '#722ed1',
-  COLLECT_MORE_DATA: '#8c8c8c',
-}
-
-const riskSnapshotActions = [
-  'PRIORITY_INSPECT',
-  'INSPECT',
-  'ENHANCED_MONITOR',
-  'MONITOR',
-  'CONTINUE',
-  'MANUAL_REVIEW',
-] as const
+const urgencyColors = ['#cf1322', '#d46b08', '#d4b106', '#1677ff', '#389e0d', '#722ed1', '#8c8c8c']
 
 type RiskSnapshotChartItem = {
   label: string
@@ -85,17 +68,12 @@ function DashboardContent() {
           : null,
     },
   ]
-  const riskSnapshotByAction = new Map(dashboard.risk_snapshot.map((item) => [item.action, item]))
-  const riskSnapshotItems = riskSnapshotActions.map((action) => {
-    const item = riskSnapshotByAction.get(action)
-
-    return {
-      label: action.replaceAll('_', ' '),
-      count: item?.count ?? 0,
-      percentage: item?.percentage ?? 0,
-      color: riskActionColors[action],
-    }
-  })
+  const riskSnapshotItems = dashboard.risk_snapshot.map((item, index) => ({
+    label: item.action.replaceAll('_', ' '),
+    count: item.count,
+    percentage: item.percentage,
+    color: urgencyColors[index] ?? colors.muted,
+  }))
   const riskSnapshotTotal = riskSnapshotItems.reduce((total, item) => total + item.count, 0)
   const riskSnapshotData = riskSnapshotItems.map((item) => ({
     ...item,

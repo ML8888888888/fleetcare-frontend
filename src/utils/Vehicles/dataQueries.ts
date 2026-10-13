@@ -1,22 +1,17 @@
-export type VehicleStatus =
-  | 'Continue'
-  | 'Monitor'
-  | 'Enhanced Monitor'
-  | 'Inspect'
-  | 'Priority Inspect'
+export type VehicleAction = {
+  action: string
+  label: string
+  count: number
+}
 
-export const vehicleClasses: VehicleStatus[] = [
-  'Continue',
-  'Monitor',
-  'Enhanced Monitor',
-  'Inspect',
-  'Priority Inspect',
-]
+export type VehicleActionListResponse = {
+  items: VehicleAction[]
+}
 
 export type VehicleRecord = {
   vehicleId: string
   state: string
-  predictedClass: VehicleStatus
+  predictedClass: string
   riskScore: number
   inMaintenance: boolean
 }

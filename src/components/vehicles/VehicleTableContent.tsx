@@ -17,33 +17,12 @@ import type { TableColumnsType } from 'antd'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { getJson, patchJson } from '../../utils/http'
-import { vehicleClasses, type VehicleListResponse, type VehicleRecord, type VehicleStatus } from '../../utils/Vehicles/dataQueries'
+import { type VehicleAction, type VehicleListResponse, type VehicleRecord } from '../../utils/Vehicles/dataQueries'
 import { vehicleEndpoints } from '../../utils/Vehicles/endpoints'
 
 const { Text, Title } = Typography
 
-type StatusConfig = {
-  color: string
-  range: string
-  action: string
-}
-
-const statusConfig: Record<VehicleStatus, StatusConfig> = {
-  'Priority Inspect': { color: 'red', range: '0-6 steps', action: 'Inspect Now' },
-  Inspect: { color: 'orange', range: '6-12 steps', action: 'Plan Inspection' },
-  'Enhanced Monitor': { color: 'gold', range: '12-24 steps', action: 'Monitor' },
-  Monitor: { color: 'blue', range: '24-48 steps', action: 'Monitor' },
-  Continue: { color: 'green', range: '48+ steps', action: 'Continue' },
-}
-
-const fallbackStatus: StatusConfig = { color: 'default', range: '', action: 'Open' }
-const actionColors: Record<VehicleStatus, { background: string; color: string }> = {
-  Continue: { background: '#e6f4ff', color: 'rgba(0, 0, 0, 0.88)' },
-  Monitor: { background: '#1677ff', color: '#fff' },
-  'Enhanced Monitor': { background: '#d4b106', color: '#fff' },
-  Inspect: { background: '#d46b08', color: '#fff' },
-  'Priority Inspect': { background: '#cf1322', color: '#fff' },
-}
+const urgencyColors = ['#cf1322', '#d46b08', '#d4b106', '#1677ff', '#389e0d', '#722ed1', '#8c8c8c']
 const stateColors: Record<string, string> = {
   C0: 'green',
   C1: 'blue',
@@ -66,6 +45,7 @@ function VehicleTableContent() {
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [actions, setActions] = useState<VehicleAction[]>([])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -99,12 +79,30 @@ function VehicleTableContent() {
 
   useEffect(() => {
     let cancelled = false
+    getJson<{ items: VehicleAction[] }>(vehicleEndpoints.actions)
+      .then((data) => {
+        if (!cancelled) setActions(data.items)
+      })
+      .catch(() => {
+        if (!cancelled) setActions([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const selectedAction = actions.find(
+    (item) => item.action === selectedStatus || item.label === selectedStatus,
+  )
+
+  useEffect(() => {
+    let cancelled = false
     setLoading(true)
     setErrorMessage('')
 
     getJson<VehicleListResponse>(vehicleEndpoints.list, {
       q: searchTerm,
-      predicted_class: selectedStatus === 'All classes' ? undefined : selectedStatus,
+      predicted_class: selectedStatus === 'All classes' ? undefined : (selectedAction?.action ?? selectedStatus),
       page,
       page_size: pageSize,
     })
@@ -126,7 +124,7 @@ function VehicleTableContent() {
     return () => {
       cancelled = true
     }
-  }, [searchTerm, selectedStatus, page])
+  }, [searchTerm, selectedStatus, selectedAction, page])
 
   const columns: TableColumnsType<VehicleRecord> = [
     {
@@ -159,16 +157,16 @@ function VehicleTableContent() {
       key: 'action',
       width: '20%',
       render: (_, vehicle) => {
-        const config = statusConfig[vehicle.predictedClass] ?? fallbackStatus
-        const actionColor = actionColors[vehicle.predictedClass]
+        const rank = actions.findIndex((item) => item.label === vehicle.predictedClass)
+        const background = rank >= 0 ? urgencyColors[rank] ?? urgencyColors[urgencyColors.length - 1] : undefined
         return (
           <Button
             size="small"
             type="primary"
-            style={actionColor ? { background: actionColor.background, borderColor: actionColor.background, color: actionColor.color } : undefined}
+            style={background ? { background, borderColor: background, color: '#fff' } : undefined}
             onClick={() => openVehicle(vehicle.vehicleId)}
           >
-            {vehicle.predictedClass || config.action}
+            {vehicle.predictedClass}
           </Button>
         )
       },
@@ -226,13 +224,13 @@ function VehicleTableContent() {
             onChange={(event) => setSearchInput(event.target.value)}
           />
           <Select
-            value={selectedStatus}
+            value={selectedAction?.action ?? selectedStatus}
             style={{ minWidth: 180 }}
             options={[
               { value: 'All classes', label: 'All classes' },
-              ...vehicleClasses.map((vehicleClass) => ({
-                value: vehicleClass,
-                label: vehicleClass,
+              ...actions.map((item) => ({
+                value: item.action,
+                label: item.label,
               })),
             ]}
             onChange={(value) => {
