@@ -1,6 +1,7 @@
-import { ArrowRightOutlined } from '@ant-design/icons'
+import { ArrowDownOutlined, ArrowRightOutlined, ArrowUpOutlined } from '@ant-design/icons'
 import { Alert, Card, Col, Divider, List, Row, Skeleton, Space, Tag, Typography } from 'antd'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchDashboard } from '../../utils/dashboard/dataQueries'
 import type { DashboardResponse } from '../../utils/dashboard/dataQueries'
 
@@ -12,6 +13,7 @@ const colors = {
   orange: '#d46b08',
   red: '#cf1322',
   yellow: '#d4b106',
+  purple: '#722ed1',
   muted: '#8c8c8c',
 }
 
@@ -24,12 +26,24 @@ const riskActionColors: Record<string, string> = {
   ENHANCED_MONITOR: '#d4b106',
   INSPECT: '#d46b08',
   PRIORITY_INSPECT: '#cf1322',
+  MANUAL_REVIEW: '#722ed1',
+  COLLECT_MORE_DATA: '#8c8c8c',
 }
+
+const riskSnapshotActions = [
+  'PRIORITY_INSPECT',
+  'INSPECT',
+  'ENHANCED_MONITOR',
+  'MONITOR',
+  'CONTINUE',
+  'MANUAL_REVIEW',
+] as const
 
 type RiskSnapshotChartItem = {
   label: string
   count: number
   percentage: number
+  chartPercentage: number
   color: string
 }
 
@@ -57,13 +71,35 @@ function DashboardContent() {
     { title: 'FLEET OVERVIEW', value: dashboard.fleet.total.toLocaleString(), details: [{ label: `${dashboard.fleet.analyzed.toLocaleString()} Analyzed`, type: 'success' as const }] },
     { title: 'AT RISK', value: dashboard.risk.at_risk.toLocaleString(), details: [{ label: `${dashboard.risk.high} High`, type: 'warning' as const }, { label: `${dashboard.risk.critical} Critical`, type: 'danger' as const }] },
     { title: 'MAINTENANCE PLAN', value: dashboard.maintenance_plan.immediate.toLocaleString(), details: [{ label: `${dashboard.maintenance_plan.short_term} Short term`, type: 'warning' as const }, { label: `${dashboard.maintenance_plan.monitor} Monitor`, type: 'secondary' as const }] },
-    { title: 'AVG. RISK SCORE', value: `${dashboard.risk.average_score.toFixed(2)} /100`, details: [{ label: 'Fleet average', type: 'secondary' as const }] },
+    {
+      title: 'AVG. RISK SCORE',
+      value: `${dashboard.risk.average_score.toFixed(2)} /100`,
+      details: [],
+      trend: dashboard.risk.average_score_change === undefined
+        ? null
+        : dashboard.risk.average_score_trend === 'UP' || dashboard.risk.average_score_trend === 'DOWN'
+          ? {
+            direction: dashboard.risk.average_score_trend,
+            change: Math.abs(dashboard.risk.average_score_change),
+            }
+          : null,
+    },
   ]
-  const riskSnapshotData = dashboard.risk_snapshot.map((item) => ({
-    label: item.action.replaceAll('_', ' '),
-    count: item.count,
-    percentage: item.percentage,
-    color: riskActionColors[item.action] ?? colors.muted,
+  const riskSnapshotByAction = new Map(dashboard.risk_snapshot.map((item) => [item.action, item]))
+  const riskSnapshotItems = riskSnapshotActions.map((action) => {
+    const item = riskSnapshotByAction.get(action)
+
+    return {
+      label: action.replaceAll('_', ' '),
+      count: item?.count ?? 0,
+      percentage: item?.percentage ?? 0,
+      color: riskActionColors[action],
+    }
+  })
+  const riskSnapshotTotal = riskSnapshotItems.reduce((total, item) => total + item.count, 0)
+  const riskSnapshotData = riskSnapshotItems.map((item) => ({
+    ...item,
+    chartPercentage: riskSnapshotTotal > 0 ? (item.count / riskSnapshotTotal) * 100 : 0,
   }))
   const riskClasses = riskSnapshotData.map((item) => ({
     ...item,
@@ -77,6 +113,7 @@ function DashboardContent() {
     { title: 'Immediate', value: dashboard.maintenance_plan.immediate.toLocaleString(), color: colors.red },
     { title: 'Short term', value: dashboard.maintenance_plan.short_term.toLocaleString(), color: colors.orange },
     { title: 'Monitor', value: dashboard.maintenance_plan.monitor.toLocaleString(), color: colors.blue },
+    { title: 'Manual review', value: dashboard.maintenance_plan.manual_review.toLocaleString(), color: colors.purple },
   ]
 
   return (
@@ -89,6 +126,15 @@ function DashboardContent() {
               <Title level={2} style={{ margin: '8px 0 16px', fontSize: 30 }}>
                 {kpi.value}
               </Title>
+              {'trend' in kpi && kpi.trend && (
+                <Text
+                  type={kpi.trend.direction === 'DOWN' ? 'success' : kpi.trend.direction === 'UP' ? 'danger' : 'secondary'}
+                  style={trendStyle}
+                >
+                  {kpi.trend.direction === 'DOWN' ? <ArrowDownOutlined /> : <ArrowUpOutlined />}
+                  {kpi.trend.change.toFixed(2)}
+                </Text>
+              )}
               <Space size={12} wrap>
                 {kpi.details.map((detail) => (
                   <Text key={detail.label} type={detail.type} style={{ fontSize: 13 }}>
@@ -105,7 +151,7 @@ function DashboardContent() {
         <Col xs={24} lg={16}>
           <Card
             title="RISK SNAPSHOT"
-            extra={<a href="#analytics">Full analytics <ArrowRightOutlined /></a>}
+            extra={<Link to="/vehicles">Full analytics <ArrowRightOutlined /></Link>}
             style={sectionCardStyle}
           >
             <Row align="middle" gutter={[32, 24]}>
@@ -122,9 +168,10 @@ function DashboardContent() {
                         <span style={{ ...legendDotStyle, background: riskClass.color }} />
                         <Text>{riskClass.label}</Text>
                       </Space>
-                      <Text strong>
-                        {riskClass.count} <Text type="secondary">{riskClass.percentage}</Text>
-                      </Text>
+                      <span style={riskSnapshotValueStyle}>
+                        <Text strong style={riskSnapshotCountStyle}>{riskClass.count}</Text>
+                        <Text type="secondary" style={riskSnapshotPercentageStyle}>{riskClass.percentage}</Text>
+                      </span>
                     </List.Item>
                   )}
                 />
@@ -136,7 +183,6 @@ function DashboardContent() {
         <Col xs={24} lg={8}>
           <Card
             title="TOP RISK ALERTS"
-            extra={<a href="#alerts">View all <ArrowRightOutlined /></a>}
             style={sectionCardStyle}
           >
             <List
@@ -183,7 +229,7 @@ function RiskSnapshotChart({ data }: { data: RiskSnapshotChartItem[] }) {
   let startAngle = -90
 
   const segments = data.map((item) => {
-    const endAngle = startAngle + item.percentage * 3.6
+    const endAngle = startAngle + item.chartPercentage * 3.6
     const startRadians = (startAngle * Math.PI) / 180
     const endRadians = (endAngle * Math.PI) / 180
     const startX = 100 + 90 * Math.cos(startRadians)
@@ -242,7 +288,11 @@ const chartTooltipStyle = {
 }
 
 const legendDotStyle = { width: 8, height: 8, borderRadius: '50%' }
+const riskSnapshotValueStyle = { display: 'grid', gridTemplateColumns: 'minmax(56px, auto) 52px', columnGap: 8, alignItems: 'baseline' }
+const riskSnapshotCountStyle = { textAlign: 'right' as const }
+const riskSnapshotPercentageStyle = { textAlign: 'right' as const }
 const summaryBlockStyle = { position: 'relative' as const, minHeight: 88, padding: '4px 20px' }
 const dividerStyle = { position: 'absolute' as const, left: 0, top: 0, height: '100%' }
+const trendStyle = { marginBottom: 8, fontSize: 13 }
 
 export default DashboardContent
