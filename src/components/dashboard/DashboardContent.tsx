@@ -20,7 +20,24 @@ const colors = {
 const cardTitleStyle = { fontSize: 12, letterSpacing: 0.5, color: colors.muted }
 const sectionCardStyle = { height: '100%' }
 
-const urgencyColors = ['#cf1322', '#d46b08', '#d4b106', '#1677ff', '#389e0d', '#722ed1', '#8c8c8c']
+const riskActionColors: Record<string, string> = {
+  CONTINUE: '#7cc7e8',
+  MONITOR: '#36a3f7',
+  ENHANCED_MONITOR: '#f2c94c',
+  INSPECT: '#f2994a',
+  PRIORITY_INSPECT: '#eb5757',
+  MANUAL_REVIEW: '#9b8afb',
+  COLLECT_MORE_DATA: '#a0aec0',
+}
+
+const riskSnapshotActions = [
+  'PRIORITY_INSPECT',
+  'INSPECT',
+  'ENHANCED_MONITOR',
+  'MONITOR',
+  'CONTINUE',
+  'MANUAL_REVIEW',
+] as const
 
 type RiskSnapshotChartItem = {
   label: string
@@ -51,7 +68,7 @@ function DashboardContent() {
   if (!dashboard) return <Skeleton active />
 
   const dashboardKpis = [
-    { title: 'FLEET OVERVIEW', value: dashboard.fleet.total.toLocaleString(), details: [{ label: `${dashboard.fleet.analyzed.toLocaleString()} Analyzed`, type: 'success' as const }] },
+    { title: 'FLEET OVERVIEW', value: dashboard.fleet.total.toLocaleString(), details: [{ label: `${dashboard.fleet.analyzed.toLocaleString()} Active`, type: 'success' as const }] },
     { title: 'AT RISK', value: dashboard.risk.at_risk.toLocaleString(), details: [{ label: `${dashboard.risk.high} High`, type: 'warning' as const }, { label: `${dashboard.risk.critical} Critical`, type: 'danger' as const }] },
     { title: 'MAINTENANCE PLAN', value: dashboard.maintenance_plan.immediate.toLocaleString(), details: [{ label: `${dashboard.maintenance_plan.short_term} Short term`, type: 'warning' as const }, { label: `${dashboard.maintenance_plan.monitor} Monitor`, type: 'secondary' as const }] },
     {
@@ -68,12 +85,17 @@ function DashboardContent() {
           : null,
     },
   ]
-  const riskSnapshotItems = dashboard.risk_snapshot.map((item, index) => ({
-    label: item.action.replaceAll('_', ' '),
-    count: item.count,
-    percentage: item.percentage,
-    color: urgencyColors[index] ?? colors.muted,
-  }))
+  const riskSnapshotByAction = new Map(dashboard.risk_snapshot.map((item) => [item.action, item]))
+  const riskSnapshotItems = riskSnapshotActions.map((action) => {
+    const item = riskSnapshotByAction.get(action)
+
+    return {
+      label: action.replaceAll('_', ' '),
+      count: item?.count ?? 0,
+      percentage: item?.percentage ?? 0,
+      color: riskActionColors[action],
+    }
+  })
   const riskSnapshotTotal = riskSnapshotItems.reduce((total, item) => total + item.count, 0)
   const riskSnapshotData = riskSnapshotItems.map((item) => ({
     ...item,
