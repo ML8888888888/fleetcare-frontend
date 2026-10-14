@@ -68,10 +68,11 @@ function DashboardContent() {
   if (!dashboard) return <Skeleton active />
 
   const dashboardKpis = [
-    { title: 'FLEET OVERVIEW', value: dashboard.fleet.total.toLocaleString(), details: [{ label: `${dashboard.fleet.analyzed.toLocaleString()} Active`, type: 'success' as const }] },
-    { title: 'AT RISK', value: dashboard.risk.at_risk.toLocaleString(), details: [{ label: `${dashboard.risk.high} High`, type: 'warning' as const }, { label: `${dashboard.risk.critical} Critical`, type: 'danger' as const }] },
-    { title: 'MAINTENANCE PLAN', value: dashboard.maintenance_plan.immediate.toLocaleString(), details: [{ label: `${dashboard.maintenance_plan.short_term} Short term`, type: 'warning' as const }, { label: `${dashboard.maintenance_plan.monitor} Monitor`, type: 'secondary' as const }] },
+    { kind: 'standard', title: 'FLEET OVERVIEW', value: dashboard.fleet.total.toLocaleString(), details: [{ label: `${dashboard.fleet.analyzed.toLocaleString()} Active`, type: 'success' as const }] },
+    { kind: 'standard', title: 'AT RISK', value: dashboard.risk.at_risk.toLocaleString(), details: [{ label: `${dashboard.risk.high} High`, type: 'warning' as const }, { label: `${dashboard.risk.critical} Critical`, type: 'danger' as const }] },
+    { kind: 'capacity' },
     {
+      kind: 'standard',
       title: 'AVG. RISK SCORE',
       value: `${dashboard.risk.average_score.toFixed(2)} /100`,
       details: [],
@@ -84,7 +85,7 @@ function DashboardContent() {
             }
           : null,
     },
-  ]
+  ] as const
   const riskSnapshotByAction = new Map(dashboard.risk_snapshot.map((item) => [item.action, item]))
   const riskSnapshotItems = riskSnapshotActions.map((action) => {
     const item = riskSnapshotByAction.get(action)
@@ -119,7 +120,11 @@ function DashboardContent() {
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Row gutter={[16, 16]}>
-        {dashboardKpis.map((kpi) => (
+        {dashboardKpis.map((kpi) => kpi.kind === 'capacity' ? (
+          <Col key="maintenance-capacity" xs={24} sm={12} lg={6}>
+            <MaintenanceCapacityCard />
+          </Col>
+        ) : (
           <Col key={kpi.title} xs={24} sm={12} lg={6}>
             <Card>
               <Text style={cardTitleStyle}>{kpi.title}</Text>
@@ -224,6 +229,32 @@ function DashboardContent() {
   )
 }
 
+function MaintenanceCapacityCard() {
+  return (
+    <Card style={maintenanceCapacityCardStyle} styles={{ body: maintenanceCapacityBodyStyle }}>
+      <Text style={maintenanceCapacityTitleStyle}>MAINTENANCE CAPACITY</Text>
+      <div style={maintenanceCapacityValueStyle}>
+        <Text strong style={maintenanceCapacityUsedStyle}>30</Text>
+        <Text style={maintenanceCapacityLimitStyle}>/ 40 vehicles per week</Text>
+      </div>
+      <div
+        aria-label="75% capacity utilised"
+        role="progressbar"
+        aria-valuemax={40}
+        aria-valuemin={0}
+        aria-valuenow={30}
+        style={maintenanceCapacityProgressTrackStyle}
+      >
+        <div style={maintenanceCapacityProgressStyle} />
+      </div>
+      <div style={maintenanceCapacityFooterStyle}>
+        <Text style={maintenanceCapacityUtilisedStyle}>75% capacity utilised</Text>
+        <Text style={maintenanceCapacityAvailableStyle}>10 slots available</Text>
+      </div>
+    </Card>
+  )
+}
+
 function RiskSnapshotChart({ data }: { data: RiskSnapshotChartItem[] }) {
   const [hoveredItem, setHoveredItem] = useState<RiskSnapshotChartItem | null>(null)
   let startAngle = -90
@@ -294,5 +325,16 @@ const riskSnapshotPercentageStyle = { textAlign: 'right' as const }
 const summaryBlockStyle = { position: 'relative' as const, minHeight: 88, padding: '4px 20px' }
 const dividerStyle = { position: 'absolute' as const, left: 0, top: 0, height: '100%' }
 const trendStyle = { marginBottom: 8, fontSize: 13 }
+const maintenanceCapacityCardStyle = { height: '100%', borderRadius: 18 }
+const maintenanceCapacityBodyStyle = { padding: '18px 16px 16px' }
+const maintenanceCapacityTitleStyle = { fontSize: 11, letterSpacing: 0.5, color: '#595959' }
+const maintenanceCapacityValueStyle = { display: 'flex', alignItems: 'baseline', gap: 4, margin: '12px 0 12px', minWidth: 0 }
+const maintenanceCapacityUsedStyle = { color: '#2f66d0', fontSize: 32, lineHeight: 1 }
+const maintenanceCapacityLimitStyle = { color: '#595959', fontSize: 13, minWidth: 0 }
+const maintenanceCapacityProgressTrackStyle = { height: 8, overflow: 'hidden' as const, borderRadius: 999, background: '#ededed' }
+const maintenanceCapacityProgressStyle = { width: '75%', height: '100%', borderRadius: 999, background: '#2f66d0' }
+const maintenanceCapacityFooterStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, marginTop: 12 }
+const maintenanceCapacityUtilisedStyle = { color: '#595959', fontSize: 11, minWidth: 0 }
+const maintenanceCapacityAvailableStyle = { color: '#237a45', fontSize: 11, minWidth: 0, textAlign: 'right' as const }
 
 export default DashboardContent
