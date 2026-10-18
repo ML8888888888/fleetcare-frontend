@@ -17,6 +17,19 @@ export type VehicleFactor = {
   impact: number
 }
 
+export const predictionClassLabels: Record<string, string> = {
+  C0: 'C0: >48 units',
+  C1: 'C1: 24–48 units',
+  C2: 'C2: 12–24 units',
+  C3: 'C3: 6–12 units',
+  C4: 'C4: 0–6 units',
+}
+
+export function predictionClassLabel(state: string) {
+  const code = state.match(/C[0-4]/)?.[0]
+  return (code && predictionClassLabels[code]) || state
+}
+
 export type VehicleDetail = {
   vehicleId: string
   badge: string

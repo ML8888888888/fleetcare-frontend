@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { getJson, patchJson } from '../../utils/http'
 import { type VehicleAction, type VehicleListResponse, type VehicleRecord } from '../../utils/Vehicles/dataQueries'
+import { predictionClassLabel } from '../../utils/Vehicles/vehicleDetails'
 import { vehicleEndpoints } from '../../utils/Vehicles/endpoints'
 
 const { Text, Title } = Typography
@@ -31,6 +32,14 @@ const stateColors: Record<string, string> = {
   C4: 'red',
 }
 const pageSize = 10
+
+function formatImminentRiskPercentile(value: number) {
+  if (!Number.isFinite(value)) return ''
+  const sign = value < 0 ? '-' : ''
+  const [whole, fraction = ''] = Math.abs(value).toString().split('.')
+  const decimals = `${fraction}00`.slice(0, 2)
+  return `${sign}${whole}.${decimals}%`
+}
 
 function VehicleTableContent() {
   const navigate = useNavigate()
@@ -143,14 +152,14 @@ function VehicleTableContent() {
       dataIndex: 'state',
       key: 'state',
       width: '20%',
-      render: (state: string) => <Tag color={stateColors[state] ?? 'default'}>{state}</Tag>,
+      render: (state: string) => <Tag color={stateColors[state] ?? 'default'}>{predictionClassLabel(state)}</Tag>,
     },
     {
-      title: 'Risk Score',
+      title: 'Imminent Risk Percentile',
       dataIndex: 'riskScore',
       key: 'riskScore',
       width: '20%',
-      render: (score: number) => <Text strong>{score} /100</Text>,
+      render: (score: number) => <Text strong>{formatImminentRiskPercentile(score)}</Text>,
     },
     {
       title: 'Action',

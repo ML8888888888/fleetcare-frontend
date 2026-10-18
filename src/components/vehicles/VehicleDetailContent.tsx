@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ApiError, getJson } from '../../utils/http'
 import { vehicleEndpoints } from '../../utils/Vehicles/endpoints'
-import type { VehicleDetail, VehicleTrendPoint } from '../../utils/Vehicles/vehicleDetails'
+import { predictionClassLabel, type VehicleDetail, type VehicleTrendPoint } from '../../utils/Vehicles/vehicleDetails'
 
 const { Text, Title } = Typography
 
@@ -239,7 +239,7 @@ function VehicleDetailContent({ vehicleId }: { vehicleId: string }) {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={8}>
-          <SummaryMetric label="Predicted State" value={detail.predictedState} />
+          <SummaryMetric label="Predicted State" value={predictionClassLabel(detail.predictedState)} />
         </Col>
         <Col xs={24} sm={12} lg={8}>
           <SummaryMetric label="Action" value={detail.action} />
@@ -250,9 +250,9 @@ function VehicleDetailContent({ vehicleId }: { vehicleId: string }) {
       </Row>
 
       <Card title="CURRENT RISK">
-        <Row gutter={[16, 16]}>
+        <Row gutter={[16, 16]} wrap={false}>
           {detail.risks.map((risk) => (
-            <Col key={risk.label} xs={12} sm={6}>
+            <Col key={risk.label} flex="1 1 0">
               <Text style={cardTitleStyle}>{risk.label}</Text>
               <Title level={3} style={{ margin: '8px 0 0' }}>{formatRiskPercent(risk.value)}</Title>
             </Col>
